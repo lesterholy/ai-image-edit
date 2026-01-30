@@ -17,8 +17,19 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = API_CONFIG.timeou
         }
         // 浏览器网络层错误（例如 net::ERR_CONNECTION_CLOSED / CORS 阻止 / 断网）通常会表现为 TypeError: Failed to fetch
         if (err instanceof TypeError) {
+            // 检查是否是 Google API 的 CORS 问题
+            if (url.includes('generativelanguage.googleapis.com')) {
+                throw new Error(
+                    '无法访问 Google API：浏览器 CORS 限制。Google Gemini API 不支持从浏览器直接调用。\n\n' +
+                    '解决方案：\n' +
+                    '1. 使用代理服务（推荐）：将 Base URL 改为支持 CORS 的代理地址\n' +
+                    '2. 搭建后端服务：通过服务器转发请求\n' +
+                    '3. 使用国内可访问的第三方服务（取消勾选"使用 Gemini 原生 API"）'
+                );
+            }
             throw new Error(
-                '网络请求失败：连接被中断（可能是服务端主动断开、网络/代理不稳定、或请求体过大导致网关重置连接）。'
+                '网络请求失败：连接被中断（可能是服务端主动断开、网络/代理不稳定、或请求体过大导致网关重置连接）。\n' +
+                '错误详情: ' + err.message
             );
         }
         throw err;
@@ -245,13 +256,12 @@ export const fileToBase64 = (file) => {
 export async function generateImage({ prompt, aspectRatio = '1:1', apiKey, baseUrl, model, size = '1024x1024', useGeminiNative = false }) {
     if (useGeminiNative) {
         // Gemini Native API format
-        const url = `${baseUrl || API_CONFIG.baseUrl}/v1beta/models/${model || 'gemini-2.5-flash-image'}:generateContent`;
+        const url = `${baseUrl || API_CONFIG.baseUrl}/v1beta/models/${model || 'gemini-2.5-flash-image'}:generateContent?key=${apiKey || API_CONFIG.apiKey}`;
 
         const response = await fetchWithTimeout(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey || API_CONFIG.apiKey}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 contents: [
@@ -343,13 +353,12 @@ export async function generateImage({ prompt, aspectRatio = '1:1', apiKey, baseU
 export async function generateImageViaChatCompletions({ prompt, apiKey, baseUrl, model, aspectRatio = '1:1', imageSize = '', useGeminiNative = false }) {
     if (useGeminiNative) {
         // Gemini Native API format
-        const url = `${baseUrl || API_CONFIG.baseUrl}/v1beta/models/${model}:generateContent`;
+        const url = `${baseUrl || API_CONFIG.baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey || API_CONFIG.apiKey}`;
 
         const response = await fetchWithTimeout(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey || API_CONFIG.apiKey}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 contents: [
